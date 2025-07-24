@@ -1,8 +1,8 @@
 import argparse
 import warnings
 
-from deeprhythm.model.predictor import DeepRhythmPredictor
-from deeprhythm.utils import get_device
+from deeprhythm_colossal.model.predictor import DeepRhythmPredictor
+from deeprhythm_colossal.utils import get_device
 
 
 if __name__ == '__main__':

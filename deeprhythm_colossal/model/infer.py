@@ -1,13 +1,13 @@
 import torch
 import time
 import os
-from deeprhythm.utils import get_weights
-from deeprhythm.utils import load_and_split_audio, split_audio
-from deeprhythm.audio_proc.hcqm import make_kernels, compute_hcqm
-from deeprhythm.utils import class_to_bpm
-from deeprhythm.model.frame_cnn import DeepRhythmModel
+from deeprhythm_colossal.utils import get_weights
+from deeprhythm_colossal.utils import load_and_split_audio, split_audio
+from deeprhythm_colossal.audio_proc.hcqm import make_kernels, compute_hcqm
+from deeprhythm_colossal.utils import class_to_bpm
+from deeprhythm_colossal.model.frame_cnn import DeepRhythmModel
 
-def load_cnn_model(path='deeprhythm-0.7.pth', device=None, quiet=False):
+def load_cnn_model(path='deeprhythm_colossal-0.7.pth', device=None, quiet=False):
     model = DeepRhythmModel(256)
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,7 +18,7 @@ def load_cnn_model(path='deeprhythm-0.7.pth', device=None, quiet=False):
     model.eval()
     return model
 
-def predict_global_bpm(input_path, model_path='deeprhythm-0.7.pth', model=None, specs=None, device='cpu'):
+def predict_global_bpm(input_path, model_path='deeprhythm_colossal-0.7.pth', model=None, specs=None, device='cpu'):
     if model is None:
         model = load_cnn_model(model_path, device=device)
     clips = load_and_split_audio(input_path, sr=22050)
@@ -39,7 +39,7 @@ def predict_global_bpm(input_path, model_path='deeprhythm-0.7.pth', model=None, 
         predicted_global_bpm = class_to_bpm(predicted_class.item())
     return predicted_global_bpm, time.time()-start
 
-def predict_global_bpm_from_audio(audio, sr, model_path='deeprhythm-0.7.pth', model=None, specs=None, device='cpu'):
+def predict_global_bpm_from_audio(audio, sr, model_path='deeprhythm_colossal-0.7.pth', model=None, specs=None, device='cpu'):
     if model is None:
         model = load_cnn_model(model_path, device=device)
     clips = split_audio(audio, sr=sr)

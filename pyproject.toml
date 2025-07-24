@@ -1,14 +1,10 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "deeprhythm"
-version = "0.0.13"
+name = "deeprhythm_colossal"
+version = "0.1"
 authors = [
-  { name="bleugreen", email="bleugreendesign@gmail.com" },
+  { name="huwcheston", email="huw@colossal.fm" },
 ]
-description = "A fast, accurate Tempo Predictor"
+description = "Modifications to deeprhythm for Colossal"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -16,15 +12,20 @@ classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
 ]
-dependencies = [
-  "torch",
-  "torchaudio",
-  "nnaudio==0.3.3",
-  "librosa",
-  "numpy",
-  "h5py",
-]
 
-[project.urls]
-Homepage = "https://github.com/bleugreen/deeprhythm"
-Issues = "https://github.com/bleugreen/deeprhythm/issues"
+[tool.poetry.dependencies]
+python = ">=3.8"
+librosa = "*"
+torch = "*"
+pandas = "*"
+numpy = "*"
+nnAudio = "*"
+torchaudio = "*"
+pytest = "*"
+pedalboard = "*"
+boto3 = "*"
+sqlalchemy = "*"
+tqdm = "*"
+dotenv = "*"
+mir_eval = "*"
+psycopg2-binary = "*"

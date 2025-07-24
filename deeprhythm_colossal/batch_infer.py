@@ -5,11 +5,11 @@ import torch
 import warnings
 import time
 import argparse
-from deeprhythm.utils import load_and_split_audio
-from deeprhythm.audio_proc.hcqm import make_kernels, compute_hcqm
-from deeprhythm.model.infer import load_cnn_model
-from deeprhythm.utils import class_to_bpm
-from deeprhythm.utils import get_device
+from deeprhythm_colossal.utils import load_and_split_audio
+from deeprhythm_colossal.audio_proc.hcqm import make_kernels, compute_hcqm
+from deeprhythm_colossal.model.infer import load_cnn_model
+from deeprhythm_colossal.utils import class_to_bpm
+from deeprhythm_colossal.utils import get_device
 
 
 NUM_WORKERS = 8

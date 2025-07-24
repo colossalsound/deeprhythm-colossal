@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from deeprhythm.dataset.clip_dataset import ClipDataset
-from deeprhythm.model.frame_cnn import DeepRhythmModel
-from deeprhythm.dataset.song_dataset import SongDataset,song_collate
+from deeprhythm_colossal.dataset.clip_dataset import ClipDataset
+from deeprhythm_colossal.model.frame_cnn import DeepRhythmModel
+from deeprhythm_colossal.dataset.song_dataset import SongDataset,song_collate
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-def train_cnn(data_path, model_name='deeprhythm', start_weights=None, batch_size=256, early_stopping_patience=5):
+def train_cnn(data_path, model_name='deeprhythm_colossal', start_weights=None, batch_size=256, early_stopping_patience=5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = DeepRhythmModel()
     if start_weights is not None:
@@ -96,7 +96,7 @@ def train_cnn(data_path, model_name='deeprhythm', start_weights=None, batch_size
 
 
 
-def train_cnn_cont(data_path, model_name='deeprhythm', start_weights=None, batch_size=256, early_stopping_patience=5):
+def train_cnn_cont(data_path, model_name='deeprhythm_colossal', start_weights=None, batch_size=256, early_stopping_patience=5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = DeepRhythmModel()
     if start_weights is not None:

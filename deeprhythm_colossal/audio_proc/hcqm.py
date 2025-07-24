@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 import nnAudio.features as feat
-from deeprhythm.audio_proc.bandfilter import create_log_filter, apply_log_filter
-from deeprhythm.audio_proc.onset import onset_strength
+from deeprhythm_colossal.audio_proc.bandfilter import create_log_filter, apply_log_filter
+from deeprhythm_colossal.audio_proc.onset import onset_strength
 
 N_BINS = 240
 N_BANDS = 8

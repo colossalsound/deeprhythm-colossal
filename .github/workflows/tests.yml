@@ -1,0 +1,68 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  REMOTE: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.2
+
+      - name: Configure Poetry to create virtualenvs inside project
+        run: poetry config virtualenvs.in-project true
+
+      - name: Add Poetry to PATH
+        run: echo "$HOME/.poetry/bin" >> $GITHUB_PATH
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies with Poetry
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction --no-root
+          poetry run pip install natten==0.17.5+torch260cu126 -f https://whl.natten.org
+
+      - name: Run tests
+        run: |
+          poetry run pytest -n auto -vv --cov-report term-missing --cov-report=xml --cov=benchmark tests
+        env:
+          EXTERNAL_BEATS_BUCKET: ${{ secrets.EXTERNAL_BEATS_BUCKET }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOSTNAME: ${{ secrets.DB_HOSTNAME }}
+          DB_PORT: ${{ secrets.DB_PORT }}

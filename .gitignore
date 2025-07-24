@@ -18,3 +18,7 @@ dist/
 *.pb
 .workspace
 .venv
+*.wav
+*.mp3
+*.env
+*.idea

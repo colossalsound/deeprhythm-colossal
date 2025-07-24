@@ -1,16 +1,16 @@
 import torch
-from deeprhythm.utils import load_and_split_audio, split_audio
-from deeprhythm.audio_proc.hcqm import make_kernels, compute_hcqm
-from deeprhythm.utils import class_to_bpm
-from deeprhythm.model.frame_cnn import DeepRhythmModel
-from deeprhythm.utils import get_weights, get_device
-from deeprhythm.batch_infer import get_audio_files, main as batch_infer_main
+from deeprhythm_colossal.utils import load_and_split_audio, split_audio
+from deeprhythm_colossal.audio_proc.hcqm import make_kernels, compute_hcqm
+from deeprhythm_colossal.utils import class_to_bpm
+from deeprhythm_colossal.model.frame_cnn import DeepRhythmModel
+from deeprhythm_colossal.utils import get_weights, get_device
+from deeprhythm_colossal.batch_infer import get_audio_files, main as batch_infer_main
 import json
 import tempfile
 import os
 
 class DeepRhythmPredictor:
-    def __init__(self, model_path='deeprhythm-0.5.pth', device=None, quiet=False):
+    def __init__(self, model_path='deeprhythm_colossal-0.5.pth', device=None, quiet=False):
         self.model_path = get_weights(quiet=quiet)
         if device is None:
             self.device = get_device()

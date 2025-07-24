@@ -1,7 +1,7 @@
 import h5py
 import torch
 from torch.utils.data import Dataset
-from deeprhythm.utils import bpm_to_class
+from deeprhythm_colossal.utils import bpm_to_class
 
 def song_collate(batch):
     # Each element in `batch` is a tuple (song_clips, global_bpm)
