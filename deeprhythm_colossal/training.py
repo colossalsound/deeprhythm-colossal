@@ -1,11 +1,17 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Training class and functions"""
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from deeprhythm_colossal.dataset.clip_dataset import ClipDataset
-from deeprhythm_colossal.model.frame_cnn import DeepRhythmModel
-from deeprhythm_colossal.dataset.song_dataset import SongDataset,song_collate
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
+
+from deeprhythm_colossal.dataloader import ClipDataset
+from deeprhythm_colossal.model.frame_cnn import DeepRhythmModel
+
 
 def train_cnn(data_path, model_name='deeprhythm_colossal', start_weights=None, batch_size=256, early_stopping_patience=5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -22,7 +28,7 @@ def train_cnn(data_path, model_name='deeprhythm_colossal', start_weights=None, b
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001,  betas=(0.9, 0.999), eps=1e-8)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.5, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.5,)
     early_stopping_counter = 0
     best_validate_loss = float('inf')
     # Training loop
@@ -112,7 +118,7 @@ def train_cnn_cont(data_path, model_name='deeprhythm_colossal', start_weights=No
 
     criterion = nn.HuberLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001,  betas=(0.9, 0.999), eps=1e-8)
-    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.5, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, 'min', patience=2, factor=0.5,)
     early_stopping_counter = 0
     best_validate_loss = float('inf')
     # Training loop

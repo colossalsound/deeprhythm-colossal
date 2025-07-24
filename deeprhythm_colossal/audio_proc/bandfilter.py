@@ -1,27 +1,29 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Bandfilter modules and functions"""
+
 import numpy as np
 import torch
 
-def create_log_filter(num_bins, num_bands, device='cuda'):
+from deeprhythm_colossal import utils
+
+
+def create_log_filter(num_bins: int, num_bands: int, device: str = utils.DEVICE) -> torch.Tensor:
     """
     Create a logarithmically spaced filter matrix for audio processing.
 
     This function generates a filter matrix with logarithmically spaced bands. The filters have
     unity gain, meaning that the sum of the filter coefficients in each band is equal to one.
 
-    Parameters
-    ----------
-    num_bins : int
-        The number of bins in the spectrogram (e.g., the number of frequency bins).
-    num_bands : int
-        The number of bands for the filter matrix. These bands are spaced logarithmically.
-    device : str, optional
-        The device on which the filter matrix will be created.
+    Parameters:
+        num_bins (int): The number of bins in the spectrogram (e.g., the number of frequency bins).
+        num_bands (int): The number of bands for the filter matrix. These bands are spaced logarithmically.
+        device (str, optional): The device on which the filter matrix will be created.
 
-    Returns
-    -------
-    torch.Tensor
-        A tensor representing the filter matrix with shape (num_bands, num_bins). Each row
-        corresponds to a filter for a specific band.
+    Returns:
+        torch.Tensor: A tensor representing the filter matrix with shape (num_bands, num_bins). Each row
+            corresponds to a filter for a specific band.
     """
     log_bins = np.logspace(np.log10(1), np.log10(num_bins), num=num_bands+1, base=10.0) - 1
     log_bins = np.unique(np.round(log_bins).astype(int))
@@ -34,6 +36,7 @@ def create_log_filter(num_bins, num_bands, device='cuda'):
         filter_matrix[i, start_bin:end_bin] = 1 / (end_bin - start_bin)
 
     return filter_matrix
+
 
 def apply_log_filter(stft_output, filter_matrix):
     """

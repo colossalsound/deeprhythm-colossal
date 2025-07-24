@@ -1,32 +1,37 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""Utility files and modules"""
+
+import nnAudio.features as feat
 import numpy as np
 import torch
-import nnAudio.features as feat
+
+from deeprhythm_colossal import utils
 from deeprhythm_colossal.audio_proc.bandfilter import create_log_filter, apply_log_filter
 from deeprhythm_colossal.audio_proc.onset import onset_strength
 
 N_BINS = 240
 N_BANDS = 8
 
-def make_kernels(len_audio=22050*8, sr=22050, device='cuda'):
+
+def make_kernels(
+        len_audio: int = utils.SAMPLE_RATE * utils.CLIP_LENGTH,
+        sr=utils.SAMPLE_RATE,
+        device: str = utils.DEVICE
+):
     """
     Create the kernels for the STFT and CQT based on the input parameters.
 
-    Parameters
-    ----------
-    len_audio : int
-        The length of the audio signal in samples.
-    sr : int
-        The sampling rate of the audio signal.
-    device : str
-        The device to use for computation ('cuda' or 'cpu').
+    Parameters:
+        len_audio (int): The length of the audio signal in samples.
+        sr (int): The sampling rate of the audio signal.
+        device (str): The device to use for computation ('cuda' or 'cpu').
 
     Returns:
-    stft_spec : STFT object
-        An object to compute the Short-Time Fourier Transform (STFT).
-    band_filter : Tensor
-        A filter matrix of shape (N_BANDS, n_fft_bins) to apply to the STFT.
-    cqt_specs : list of CQT objects
-        A list of Constant-Q Transform (CQT) objects for different harmonics.
+        stft_spec (STFT): An object to compute the Short-Time Fourier Transform (STFT).
+        band_filter (torch.Tensor): A filter matrix of shape (N_BANDS, n_fft_bins) to apply to the STFT.
+        cqt_specs (list of CQT objects): A list of Constant-Q Transform (CQT) objects for different harmonics.
     """
     n_fft = 2048
     hop = 512
@@ -36,10 +41,11 @@ def make_kernels(len_audio=22050*8, sr=22050, device='cuda'):
     cqt_specs = []
     for h in [1/2, 1, 2, 3, 4, 5]:
         # Convert from BPM to Hz
-        fmin = (32.7*h)/60
-        sr_cqt = len_audio//(hop*8)
-        fmax =sr_cqt/2
-        num_octaves = np.log2(fmax/fmin)
+        fmin = (32.7 * h) / 60
+        # TODO: check floor division here
+        sr_cqt = len_audio // (hop * 8)
+        fmax = sr_cqt / 2
+        num_octaves = np.log2(fmax / fmin)
         bins_per_octave = N_BINS / num_octaves
         cqt_spec = feat.cqt.CQT(sr=sr_cqt,
                                 hop_length=len_audio//hop,
@@ -52,7 +58,8 @@ def make_kernels(len_audio=22050*8, sr=22050, device='cuda'):
         cqt_specs.append(cqt_spec)
     return stft_spec, band_filter, cqt_specs
 
-def compute_hcqm(y, stft_spec, band_filter, cqt_specs):
+
+def compute_hcqm(y: torch.Tensor, stft_spec, band_filter, cqt_specs: list) -> torch.Tensor:
     """
     Compute the Harmonic Constant-Q Modulation (HCQM) for an input signal.
 
@@ -60,13 +67,14 @@ def compute_hcqm(y, stft_spec, band_filter, cqt_specs):
     "Deep-Rhythm for Tempo Estimation and Rhythm Pattern Recognition", 2019
 
     Parameters:
-    - y (Tensor): The input signal tensor of shape (batch_size, num_samples).
-    - stft_spec (STFT object): An object to compute the Short-Time Fourier Transform (STFT).
-    - band_filter (Tensor): A filter matrix of shape (num_bands, num_bins) to apply to the STFT.
-    - cqt_specs (list of CQT objects): A list of Constant-Q Transform (CQT) objects for different harmonics / bands
+        y (torch.Tensor): The input signal tensor of shape (batch_size, num_samples).
+        stft_spec (STFT object): An object to compute the Short-Time Fourier Transform (STFT).
+        band_filter (torch.Tensor): A filter matrix of shape (num_bands, num_bins) to apply to the STFT.
+        cqt_specs (list of CQT objects): A list of Constant-Q Transform (CQT) objects for different harmonics / bands
 
     Returns:
-    - hcqm (Tensor): The computed HCQM of shape (batch_size, N_BINS, N_BANDS, N_HARMONICS), where 6 corresponds to the number of different harmonics analyzed.
+        hcqm (torch.Tensor): The computed HCQM of shape (batch_size, N_BINS, N_BANDS, N_HARMONICS),
+            where 6 corresponds to the number of different harmonics analyzed.
     """
     stft = stft_spec(y)
     stft_bands = apply_log_filter(stft, band_filter)

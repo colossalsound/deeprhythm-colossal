@@ -1,5 +1,12 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""The main deeprhythm CNN classifier"""
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 
 class DeepRhythmModel(nn.Module):
     def __init__(self, num_classes=256):
@@ -22,7 +29,7 @@ class DeepRhythmModel(nn.Module):
         self.fc2 = nn.Linear(256, num_classes)
         self._initialize_weights()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
@@ -34,6 +41,7 @@ class DeepRhythmModel(nn.Module):
         return x
 
     def _initialize_weights(self):
+        # TODO: this is probably not needed
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
