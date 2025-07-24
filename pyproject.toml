@@ -1,17 +1,17 @@
-[project]
-name = "deeprhythm_colossal"
-version = "0.1"
-authors = [
-  { name="huwcheston", email="huw@colossal.fm" },
-]
+[tool.poetry]
+name = "deeprhythm-colossal"
+version = "0.1.0"
 description = "Modifications to deeprhythm for Colossal"
+authors = ["huwcheston <huw@colossal.fm>"]
 readme = "README.md"
-requires-python = ">=3.8"
+license = "AGPL-3.0"
+packages = [{ include = "deeprhythm_colossal" }]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
 ]
+
 
 [tool.poetry.dependencies]
 python = ">=3.8"
@@ -21,7 +21,6 @@ pandas = "*"
 numpy = "*"
 nnAudio = "*"
 torchaudio = "*"
-pytest = "*"
 pedalboard = "*"
 boto3 = "*"
 sqlalchemy = "*"
@@ -29,3 +28,13 @@ tqdm = "*"
 dotenv = "*"
 mir_eval = "*"
 psycopg2-binary = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+coverage = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
