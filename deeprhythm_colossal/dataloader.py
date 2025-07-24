@@ -3,90 +3,178 @@
 
 """Data loading classes for both full songs and individual clips"""
 
-import h5py
+import random
+
+import numpy as np
+import pandas as pd
 import torch
-from torch.utils.data import Dataset
+from loguru import logger
 
-from deeprhythm_colossal.utils import bpm_to_class
-
-
-def song_collate(batch):
-    # Each element in `batch` is a tuple (song_clips, global_bpm)
-    # Where song_clips is a tensor of shape [num_clips, 240, 8, 6]
-    inputs = [item[0] for item in batch]
-    labels = torch.tensor([item[1] for item in batch])
-    return inputs, labels
+from deeprhythm_colossal import utils
 
 
-class ClipDataset(Dataset):
-    def __init__(self, hdf5_file, group, use_float=False):
+class ClipDataset(torch.utils.data.Dataset):
+    """
+    Dataloader for working with clips.
+
+    Parameters:
+        split_df (pd.DataFrame): a dataframe containing filepaths, BPM values, etc. for this split
+        n_tracks (int, optional): maximum number of tracks to use during training
+        clip_length (int, optional): duration of every clip
+        sample_rate (int, optional): sample rate to resample clips to
+    """
+
+    def __init__(
+            self,
+            split_df: pd.DataFrame,
+            n_clips: int = None,
+            clip_length: int = utils.CLIP_LENGTH,
+            sample_rate: int = utils.SAMPLE_RATE
+    ):
+        # Parse sample rate + clip length, then use this to estimate N samples in each clip
+        self.sample_rate = sample_rate
+        self.clip_length = clip_length
+        self.clip_samples = clip_length * sample_rate
+
+        # TODO: if we're using different buckets/sources, we should also get the "source" of each track from the column
+        self.bucket = utils.get_bucket(utils.EXTERNAL_BEATS_BUCKET)
+
+        # Get the filepaths and ground-truth BPMs from the dataframe
+        self.df = self.format_df(split_df)
+
+        self.clips = self.get_all_clips()
+
+        # If required, shuffle and get N clips only
+        if n_clips is not None:
+            random.shuffle(self.clips)
+            self.clips = self.clips[:n_clips]
+
+    def format_df(self, split_df: pd.DataFrame) -> pd.DataFrame:
         """
-        :param hdf5_file: Path to the HDF5 file.
-        :param group: Group in the HDF5 file to use ('train', 'test', 'validate').
+        Formats and sanitises an input dataframe.
+
+        Removes invalid tracks (i.e., those outside the range of training BPM, or where the header-extracted BPM is a
+        mismatch with the one given on beatstars) and adds a few additional metadata columns.
         """
-        self.use_float = use_float
-        self.hdf5_file = hdf5_file
-        self.group = group
-        self.index_map = []
-        self.file_ref = h5py.File(self.hdf5_file, 'r')
-        group_data = self.file_ref[group]
-        for song_key in group_data.keys():
-            song_data = group_data[song_key]
-            if song_data.attrs['source'] == 'fma':
-                continue
-            num_clips = song_data['hcqm'].shape[0]
-            if num_clips > 5:
-                clip_start = 1
-                clip_range = num_clips-2
-            else:
-                clip_start, clip_range = 0, num_clips
 
-            for clip_index in range(clip_start, clip_range):
-                self.index_map.append((song_key, clip_index))
+        # Make a copy for safety
+        tmp = split_df.copy(deep=True)
 
-    def __len__(self):
-        return len(self.index_map)
+        # Drop tracks where the BPM is outside the range
+        tmp = tmp[(utils.MIN_BPM <= tmp["bpm"]) & (utils.MAX_BPM >= tmp["bpm"])]
 
-    def __getitem__(self, idx):
-        song_key, clip_index = self.index_map[idx]
-        song_data = self.file_ref[self.group][song_key]
-        hcqm = song_data['hcqm'][clip_index]
-        bpm = torch.tensor(float(song_data.attrs['bpm']), dtype=torch.float32)
-        hcqm_tensor = torch.tensor(hcqm, dtype=torch.float).permute(2, 0, 1)
-        if self.use_float:
-            return hcqm_tensor, bpm
-        label_class_index = bpm_to_class(int(bpm))  # Convert BPM to class index
-        return hcqm_tensor, label_class_index
+        # Drop tracks where the header BPM does not agree with the beatstars BPM (only when header info is provided)
+        bpm_matches_header = tmp["header_bpm"].isna() | (tmp["header_bpm"] == tmp["bpm"])
+        mismatch = tmp[~bpm_matches_header]
+        logger.warning(f"... found {len(mismatch)} tracks where header contradicts BeatStars BPM, dropping!")
+        tmp = tmp[bpm_matches_header]
 
+        # Estimate the framecount for all tracks based on duration and sample rate
+        #  We don't care about the extracted sample rate as we'll be resampling anyway
+        tmp["framecount_estimated"] = (self.sample_rate * tmp["duration"]).astype(int)
 
-class SongDataset(Dataset):
-    def __init__(self, hdf5_path, group):
+        # Estimate the number of clips we can get from the track based on the frame count
+        tmp["clipcount_estimated"] = (tmp["framecount_estimated"] + self.clip_samples - 1) // self.clip_samples
+        tmp["clipcount_estimated"] = tmp["clipcount_estimated"].astype(int)
+
+        return tmp
+
+    def get_all_clips(self) -> list[tuple[str, int, int, int]]:
         """
-        Args:
-            hdf5_path (str): Path to the HDF5 file.
-            group (str): Group in HDF5 file ('train', 'test', 'validate').
+        Gets metadata + slice indices for all clips.
+
+        The return is a list of tuples in the form (fpath, true_bpm, clip_start, clip_end, estimated_samples), where
+        `clip_start` and `clip_end` are given in samples with respect to the desired clip length and sample rate.
         """
-        super(SongDataset, self).__init__()
-        self.hdf5_path = hdf5_path
-        self.group = group
-        self.file = h5py.File(hdf5_path, 'r')
-        self.group_file = self.file[group]
-        self.keys = []
-        for key in self.group_file.keys():
-            if self.group_file[key].attrs['source'] == 'fma':
-                continue
-            else:
-                self.keys.append(key)
+        allres = []
 
-    def __len__(self):
-        return len(self.keys)
+        # Iterate over every track in the dataset
+        for idx, track in self.df.iterrows():
 
-    def __getitem__(self, idx):
-        song_key = self.keys[idx]
-        song_data = self.group_file[song_key]
-        hcqm = torch.tensor(song_data['hcqm'][:])
-        bpm_class = bpm_to_class(int(float(song_data.attrs['bpm'])))
-        return hcqm, bpm_class
+            # Iterate over the predicted number of clips for the track
+            for clip_idx in range(track["clipcount_estimated"]):
 
-    def close(self):
-        self.file.close()
+                # Get the starting point for the clip, in samples
+                start = int(self.clip_samples * clip_idx)
+
+                # Break out once we've exceeded the total length of the clip
+                if start > track["framecount_estimated"]:
+                    break
+
+                # Append everything to the list
+                clip_meta = (track["object_fpath"], track["bpm"], start, track["framecount_estimated"])
+                allres.append(clip_meta)
+
+        return allres
+
+    def __len__(self) -> int:
+        """
+        Returns the total number of items in the dataloader.
+
+        This is equivalent to the total number of clips estimated for every track contained within the data subset.
+        """
+        return self.df["clipcount_estimated"].sum()
+
+    # noinspection PyUnresolvedReferences
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
+        """
+        Gets the audio for a clip and BPM as a class index
+        """
+        # Unpack the tuple
+        object_path, true_bpm, clip_start, predicted_framecount = self.clips[idx]
+
+        # Convert the actual BPM to a class IDX for use in training
+        class_idx_bpm = utils.bpm_to_class(true_bpm)
+
+        # Make the S3 request to get the audio file
+        audiofile = utils.read_s3_object_to_audiofile(object_path, self.bucket)
+
+        # Resample the audio file to the target sample rate
+        audiofile_res = audiofile.resampled_to(self.sample_rate)
+        total_framecount = audiofile_res.frames
+
+        # Get the number of samples we want to use
+        #  If we don't have enough samples left in the audio to have a "complete" clip, just use all the samples left
+        if total_framecount - clip_start < self.clip_samples:
+            samples_to_read = total_framecount - clip_start
+        #  Otherwise, we have a "complete" clip and can use all the samples
+        else:
+            samples_to_read = self.clip_samples
+
+        # Then, seek to the clip starting point, read the required number of samples, and convert to mono
+        audiofile_res.seek(clip_start)
+        audiofile_read = audiofile_res.read(samples_to_read).mean(axis=0)
+
+        # If the clip is too short, right-pad to the expected number of samples
+        if len(audiofile_read) < self.clip_samples:
+            pad_width = self.clip_samples - len(audiofile_read)
+            audiofile_read = np.pad(audiofile_read, (0, pad_width), mode='constant', constant_values=0.)
+
+        # Return the audiofile (as a tensor) and the ground truth BPM
+        #  We'll do the feature extraction in batches prior to passing to the model
+        return torch.from_numpy(audiofile_read), class_idx_bpm
+
+
+if __name__ == "__main__":
+    from time import time
+
+    df = pd.read_csv(utils.get_project_root() / "splits/split_2025-07-24_header/test_split.csv")
+    dl = ClipDataset(df, n_clips=1000)
+
+    n_batches = 10
+    batch_size = 8
+    num_workers = 8
+    loader = torch.utils.data.DataLoader(dl, batch_size=batch_size, num_workers=num_workers)
+
+    data_iter = iter(loader)
+    batch_times = []
+    for batch_idx in range(len(loader)):
+        start_time = time()
+        batch = next(data_iter)
+        end_time = time()
+        logger.info(f"Batch {batch_idx + 1}: Took {end_time - start_time:.4f} seconds to prepare")
+        batch_times.append(end_time - start_time)
+        if batch_idx > n_batches:
+            break
+
+    logger.info(f"Average time for {n_batches} batches of size: {np.mean(batch_times):.4f} seconds")
