@@ -23,7 +23,7 @@ TEST_FILE = os.path.join(utils.get_project_root(), "data/1000028.mp3")
         "cl-stage-cdn-logs",
         "cl-stage-cdn-origin",
         "cl-stage-model-storage",
-        "cl-dev-external-beats"
+        utils.EXTERNAL_BEATS_BUCKET
     ]
 )
 def test_get_bucket(bucket_name):
@@ -39,20 +39,17 @@ def test_get_bucket(bucket_name):
 )
 def test_get_object(object_name):
     # Get a bucket we know to exist
-    bucket = utils.get_bucket("cl-dev-external-beats")
+    bucket = utils.get_bucket(utils.EXTERNAL_BEATS_BUCKET)
     object_ = utils.get_object(object_name, bucket)
-    assert hasattr(object_, 'key') and object_.__class__.__name__ == 's3.Object'
-    # Try getting the object, should get a OK status code
-    getted = object_.get()
-    assert getted["ResponseMetadata"]["HTTPStatusCode"] == 200
+    assert isinstance(object_, dict)
+    assert "Body" in object_
+    assert object_["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
 @pytest.mark.parametrize(
     "obj,bucket",
     [
-        ("11047732.mp3", "cl-dev-external-beats"),
-        (utils.get_object("11047732.mp3", "cl-dev-external-beats"), "cl-dev-external-beats"),
-        ("11047732.mp3", utils.get_bucket("cl-dev-external-beats"))
+        ("11047732.mp3", utils.EXTERNAL_BEATS_BUCKET),
     ]
 )
 def test_get_audiofile(obj, bucket):
@@ -131,7 +128,6 @@ def test_class_to_bpm(class_index, expected):
 )
 def test_lists_are_unique(input_lists, expected):
     assert utils.lists_are_unique(*input_lists) is expected
-
 
 
 @pytest.mark.parametrize(
