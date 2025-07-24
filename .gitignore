@@ -14,7 +14,6 @@ model_weights/
 dist/
 *.whl
 *.tar.gz
-*.csv
 *.pb
 .workspace
 .venv
